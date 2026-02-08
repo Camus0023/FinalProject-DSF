@@ -43,33 +43,6 @@ st.set_page_config(
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
-@st.cache_data
-def load_data_from_file(uploaded_file, file_type):
-    """Carga datos desde archivo subido"""
-    try:
-        if file_type == "csv":
-            df = pd.read_csv(uploaded_file)
-        elif file_type == "json":
-            df = pd.read_json(uploaded_file)
-        return df, None
-    except Exception as e:
-        return None, str(e)
-
-@st.cache_data
-def load_data_from_url(url):
-    """Carga datos desde URL"""
-    try:
-        if url.endswith('.csv'):
-            df = pd.read_csv(url)
-        elif url.endswith('.json'):
-            df = pd.read_json(url)
-        else:
-            # Intentar como CSV por defecto
-            df = pd.read_csv(url)
-        return df, None
-    except Exception as e:
-        return None, str(e)
-
 def remove_duplicates(df):
     """Elimina filas duplicadas"""
     initial_rows = len(df)
@@ -265,48 +238,21 @@ if modulo == "🔄 ETL - Carga y Limpieza":
     
     # ----- SECCIÓN DE CARGA -----
     st.header("📁 1. Carga de Datos")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fuente = st.selectbox(
-            "Selecciona la fuente de datos:",
-            ["Subir archivo", "Cargar desde URL", "Usar datos de muestra"]
-        )
-    
-    with col2:
-        if fuente == "Subir archivo":
-            tipo_archivo = st.selectbox("Tipo de archivo:", ["csv", "json"])
+    st.markdown("**Dataset:** Propiedades inmobiliarias de Washington State, USA")
     
     df = None
     error_msg = None
     
-    if fuente == "Subir archivo":
-        uploaded_file = st.file_uploader(
-            "Arrastra o selecciona tu archivo",
-            type=["csv", "json"]
-        )
-        if uploaded_file is not None:
-            file_type = uploaded_file.name.split('.')[-1].lower()
-            df, error_msg = load_data_from_file(uploaded_file, file_type)
-            
-    elif fuente == "Cargar desde URL":
-        url = st.text_input("Ingresa la URL del archivo (CSV o JSON):")
-        if url:
-            with st.spinner("Cargando datos desde URL..."):
-                df, error_msg = load_data_from_url(url)
-                
-    elif fuente == "Usar datos de muestra":
-        try:
-            data_path = get_data_path()
-            df = pd.read_csv(data_path)
-            st.success("✅ Datos de muestra cargados correctamente")
-        except Exception as e:
-            error_msg = f"Error al cargar datos de muestra: {str(e)}"
-            st.error(f"No se pudo cargar el archivo de datos. {error_msg}")
-    
-    if error_msg:
-        st.error(f"❌ Error al cargar datos: {error_msg}")
+    # Cargar automáticamente el dataset del proyecto
+    try:
+        data_path = get_data_path()
+        df = pd.read_csv(data_path)
+        st.success("✅ Dataset cargado correctamente: data_imperfecto_v2.csv")
+        st.info("📊 Este dataset contiene datos reales de propiedades inmobiliarias con imperfecciones para demostrar el proceso completo de ETL")
+    except Exception as e:
+        error_msg = f"Error al cargar el dataset del proyecto: {str(e)}"
+        st.error(f"❌ No se pudo cargar el archivo de datos. {error_msg}")
+        st.stop()
     
     if df is not None:
         st.session_state.df_original = df.copy()
