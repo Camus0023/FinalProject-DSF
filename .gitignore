@@ -1,1 +1,32 @@
+# Entornos virtuales
 venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos sensibles
+.streamlit/secrets.toml
+secrets.toml
+*.env
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.log
+
+# Scripts auxiliares (no necesarios en producción)
+verify_dataset.py
+extract_pdf.py
+read_pdf.py
