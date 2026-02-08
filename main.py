@@ -217,7 +217,7 @@ with st.sidebar:
     # Navegación por módulos
     modulo = st.radio(
         "📌 Navegación",
-        ["🔄 ETL - Carga y Limpieza", "📊 EDA - Visualizaciones", "🔍 VERIFICACIÓN (Temporal)", "🤖 IA - Insights Inteligentes"],
+        ["🔄 ETL - Carga y Limpieza", "📊 EDA - Visualizaciones", "🤖 IA - Insights Inteligentes"],
         index=0
     )
     
@@ -702,115 +702,6 @@ elif modulo == "📊 EDA - Visualizaciones":
                     diff = wf_analysis.loc['Con vista al agua', 'mean'] - wf_analysis.loc['Sin vista al agua', 'mean']
                     pct = (diff / wf_analysis.loc['Sin vista al agua', 'mean']) * 100
                     st.success(f"📈 Las propiedades con vista al agua cuestan en promedio ${diff:,.0f} más ({pct:.1f}%)")
-
-# ============================================================================
-# SECCIÓN DE VERIFICACIÓN DE DATOS (TEMPORAL)
-# ============================================================================
-elif modulo == "🔍 VERIFICACIÓN (Temporal)":
-    st.title("🔍 VERIFICACIÓN DE DATOS (Para Revisión)")
-    st.warning("⚠️ SECCIÓN TEMPORAL: Esta sección se eliminará una vez verificados todos los cálculos")
-    
-    # Verificar que hay datos
-    df = st.session_state.df_clean if st.session_state.df_clean is not None else st.session_state.df_original
-    
-    if df is None:
-        st.error("❌ No hay datos cargados. Por favor, primero usa el módulo ETL.")
-        st.stop()
-    
-    st.markdown("**💡 Datos importantes para copiar y verificar:**")
-    
-    # Métricas clave calculadas
-    col1, col2, col3, col4 = st.columns(4)
-    
-    precio_promedio = df['price'].mean() if 'price' in df.columns else 0
-    precio_mediano = df['price'].median() if 'price' in df.columns else 0
-    total_propiedades = len(df)
-    precio_maximo = df['price'].max() if 'price' in df.columns else 0
-    precio_minimo = df['price'].min() if 'price' in df.columns else 0
-    
-    with col1:
-        st.metric("Precio Promedio", f"${precio_promedio:,.0f}")
-        st.metric("Precio Mediano", f"${precio_mediano:,.0f}")
-    
-    with col2:
-        st.metric("Total Propiedades", f"{total_propiedades:,}")
-        st.metric("Precio Máximo", f"${precio_maximo:,.0f}")
-    
-    with col3:
-        if 'bedrooms' in df.columns:
-            habitaciones_promedio = df['bedrooms'].mean()
-            st.metric("Habitaciones Promedio", f"{habitaciones_promedio:.1f}")
-        
-        if 'bathrooms' in df.columns:
-            banos_promedio = df['bathrooms'].mean()
-            st.metric("Baños Promedio", f"{banos_promedio:.1f}")
-    
-    with col4:
-        if 'sqft_living' in df.columns:
-            area_promedio = df['sqft_living'].mean()
-            st.metric("Área Promedio (sqft)", f"{area_promedio:,.0f}")
-        
-        st.metric("Precio Mínimo", f"${precio_minimo:,.0f}")
-    
-    # Datos para copiar
-    st.subheader("📋 Datos para Copiar y Verificar")
-    
-    verification_data = f"""**MÉTRICAS PRINCIPALES:**
-- Total de propiedades: {total_propiedades:,}
-- Precio promedio: ${precio_promedio:,.2f}
-- Precio mediano: ${precio_mediano:,.2f}
-- Precio máximo: ${precio_maximo:,.2f}
-- Precio mínimo: ${precio_minimo:,.2f}
-    """
-    
-    if 'bedrooms' in df.columns:
-        verification_data += f"\n- Habitaciones promedio: {df['bedrooms'].mean():.2f}"
-    if 'bathrooms' in df.columns:
-        verification_data += f"\n- Baños promedio: {df['bathrooms'].mean():.2f}"
-    if 'sqft_living' in df.columns:
-        verification_data += f"\n- Área promedio: {df['sqft_living'].mean():.2f} sqft"
-    
-    # Top 5 precios más altos
-    if 'price' in df.columns:
-        top_prices = df.nlargest(5, 'price')[['price']]
-        verification_data += f"\n\n**TOP 5 PRECIOS MÁS ALTOS:**\n"
-        for i, (_, row) in enumerate(top_prices.iterrows(), 1):
-            verification_data += f"{i}. ${row['price']:,.2f}\n"
-    
-    # Distribución por rangos
-    if 'price' in df.columns:
-        ranges = [(0, 200000), (200000, 500000), (500000, 1000000), (1000000, float('inf'))]
-        verification_data += f"\n**DISTRIBUCIÓN POR RANGOS:**\n"
-        for min_p, max_p in ranges:
-            count = len(df[(df['price'] >= min_p) & (df['price'] < max_p)])
-            percentage = (count / len(df)) * 100
-            range_name = f"${min_p:,} - ${max_p:,}" if max_p != float('inf') else f"Más de ${min_p:,}"
-            verification_data += f"- {range_name}: {count:,} propiedades ({percentage:.1f}%)\n"
-    
-    st.text_area(
-        "Datos calculados (copiar para verificación):",
-        verification_data,
-        height=400
-    )
-    
-    # Vista previa de datos crudos
-    with st.expander("🔍 Ver muestra de datos procesados"):
-        st.dataframe(df.head(10))
-    
-    # Verificación de columnas específicas
-    st.subheader("📊 Información de Columnas")
-    if not df.empty:
-        for col in df.columns:
-            if df[col].dtype in ['int64', 'float64']:
-                col_data = {
-                    'Columna': col,
-                    'Tipo': str(df[col].dtype),
-                    'Min': f"{df[col].min():,.2f}" if pd.notnull(df[col].min()) else "N/A",
-                    'Max': f"{df[col].max():,.2f}" if pd.notnull(df[col].max()) else "N/A",
-                    'Promedio': f"{df[col].mean():.2f}" if pd.notnull(df[col].mean()) else "N/A",
-                    'Nulos': df[col].isnull().sum()
-                }
-                st.write(f"**{col}:** Min: {col_data['Min']}, Max: {col_data['Max']}, Promedio: {col_data['Promedio']}, Nulos: {col_data['Nulos']}")
 
 # ============================================================================
 # MÓDULO 3: INTEGRACIÓN CON IA (GROQ)
