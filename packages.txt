@@ -1,0 +1,3 @@
+# packages.txt
+# Este archivo especifica paquetes del sistema necesarios para Streamlit Cloud
+# Actualmente no se requieren paquetes del sistema adicionales

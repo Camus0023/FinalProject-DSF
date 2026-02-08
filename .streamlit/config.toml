@@ -8,6 +8,14 @@ font = "sans serif"
 
 [server]
 maxUploadSize = 200
+headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = false
 
 [browser]
 gatherUsageStats = false
+serverAddress = "0.0.0.0"
+
+[logger]
+level = "error"

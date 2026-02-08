@@ -14,10 +14,21 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import json
 import requests
+import os
 from io import StringIO
 from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
+
+# Importar configuración específica para Streamlit
+try:
+    from streamlit_config import check_dependencies, get_data_path
+except ImportError:
+    # Fallback si hay problemas con el import
+    def check_dependencies():
+        return []
+    def get_data_path():
+        return "data/data_imperfecto_v2.csv"
 
 # ============================================================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -287,10 +298,12 @@ if modulo == "🔄 ETL - Carga y Limpieza":
                 
     elif fuente == "Usar datos de muestra":
         try:
-            df = pd.read_csv("data/data_imperfecto_v2.csv")
+            data_path = get_data_path()
+            df = pd.read_csv(data_path)
             st.success("✅ Datos de muestra cargados correctamente")
         except Exception as e:
-            error_msg = str(e)
+            error_msg = f"Error al cargar datos de muestra: {str(e)}"
+            st.error(f"No se pudo cargar el archivo de datos. {error_msg}")
     
     if error_msg:
         st.error(f"❌ Error al cargar datos: {error_msg}")
