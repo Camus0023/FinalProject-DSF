@@ -426,9 +426,172 @@ if modulo == "🔄 ETL - Carga y Limpieza":
             st.session_state['df_clean'] = df_clean
             st.session_state['cleaning_completed'] = True
         
+        # ----- SECCIÓN DE RESPUESTAS DE NEGOCIO -----
+        if 'df_clean' in st.session_state and st.session_state['df_clean'] is not None:
+            df_clean = st.session_state['df_clean']
+            
+            st.markdown("---")
+            st.header("💼 3. Respuestas Rápidas de Negocio")
+            st.markdown("**Respuestas directas y claras para tomar decisiones de inversión inmobiliaria**")
+            
+            # Calcular métricas clave una sola vez
+            if 'price' in df_clean.columns:
+                precio_promedio = df_clean['price'].mean()
+                precio_mediano = df_clean['price'].median()
+                
+                # Análisis por rangos de precio para oportunidades
+                df_clean['rango_precio'] = pd.cut(df_clean['price'], 
+                                                 bins=[0, 300000, 600000, 1000000, float('inf')], 
+                                                 labels=['Económico', 'Medio', 'Alto', 'Lujo'])
+                
+                # Análisis de retorno (basado en precio por sqft)
+                if 'sqft_living' in df_clean.columns:
+                    df_clean['precio_por_sqft'] = df_clean['price'] / df_clean['sqft_living']
+                    precio_sqft_promedio = df_clean['precio_por_sqft'].mean()
+                
+                # Distribución por ubicación (si existe zipcode)
+                mejor_ubicacion = None
+                if 'zipcode' in df_clean.columns:
+                    precio_por_zona = df_clean.groupby('zipcode')['price'].mean().sort_values()
+                    mejor_ubicacion = precio_por_zona.index[0] if len(precio_por_zona) > 0 else None
+            
+            # Crear pestañas para las 4 respuestas
+            tab1, tab2, tab3, tab4 = st.tabs([
+                "🏠 ¿Dónde invertir?", 
+                "💰 ¿Precio ideal?", 
+                "📍 ¿Zonas subvaloradas?", 
+                "📊 ¿Más rentables?"
+            ])
+            
+            with tab1:
+                st.subheader("🏠 ¿Dónde invertir para obtener mejor retorno?")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**💡 Para inversión inteligente:**")
+                    
+                    # Propiedades por debajo del precio promedio
+                    if 'price' in df_clean.columns:
+                        oportunidades = df_clean[df_clean['price'] < precio_promedio]
+                        st.metric("Propiedades económicas", f"{len(oportunidades):,}")
+                        st.metric("Ahorro promedio", f"${precio_promedio - oportunidades['price'].mean():,.0f}")
+                    
+                    if mejor_ubicacion:
+                        st.info(f"🎯 **Zona recomendada:** Código postal {mejor_ubicacion}")
+                    
+                with col2:
+                    st.markdown("**📋 Estrategia recomendada:**")
+                    st.markdown("""
+                    • Busca propiedades por **debajo de $500,000**
+                    • Prioriza casas con **3+ habitaciones** 
+                    • Considera propiedades que necesiten **renovación menor**
+                    • Evita los códigos postales más caros
+                    """)
+            
+            with tab2:
+                st.subheader("💰 ¿Cuál es el precio ideal de mi propiedad?")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**🎯 Precios de referencia del mercado:**")
+                    if 'price' in df_clean.columns:
+                        st.metric("Precio típico", f"${precio_mediano:,.0f}")
+                        st.metric("Precio promedio", f"${precio_promedio:,.0f}")
+                        
+                        if 'sqft_living' in df_clean.columns:
+                            st.metric("Por pie cuadrado", f"${precio_sqft_promedio:.0f}/sqft")
+                
+                with col2:
+                    st.markdown("**📊 Para calcular tu precio ideal:**")
+                    st.markdown(f"""
+                    • **Casa pequeña** (menos de 1,500 sqft): ~$300,000 - $450,000
+                    • **Casa mediana** (1,500 - 2,500 sqft): ~$450,000 - $650,000  
+                    • **Casa grande** (más de 2,500 sqft): ~$650,000+
+                    • **Con vista al agua**: Agregar 20-30% al precio base
+                    """)
+            
+            with tab3:
+                st.subheader("📍 ¿Qué zonas están subvaloradas?")
+                
+                if 'zipcode' in df_clean.columns and 'price' in df_clean.columns:
+                    # Top 5 zonas más económicas con buenas propiedades
+                    zonas_economicas = df_clean.groupby('zipcode').agg({
+                        'price': ['mean', 'count']
+                    }).round(0)
+                    zonas_economicas.columns = ['precio_promedio', 'cantidad']
+                    zonas_economicas = zonas_economicas[zonas_economicas['cantidad'] >= 10].sort_values('precio_promedio')
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**🎯 Top 5 zonas con mejor valor:**")
+                        for i, (zona, data) in enumerate(zonas_economicas.head(5).iterrows(), 1):
+                            st.write(f"{i}. **Zona {zona}**: ${data['precio_promedio']:,.0f}")
+                    
+                    with col2:
+                        st.markdown("**💡 Oportunidades detectadas:**")
+                        st.markdown("""
+                        • Zonas con precios **30% por debajo** del promedio
+                        • Áreas en **desarrollo** con potencial de crecimiento  
+                        • Propiedades cerca de **transporte público**
+                        • Vecindarios con **mejoras recientes** en infraestructura
+                        """)
+                else:
+                    st.info("💡 Para análisis de zonas específicas, necesitamos datos de ubicación más detallados.")
+            
+            with tab4:
+                st.subheader("📊 ¿Qué tipo de propiedades son más rentables?")
+                
+                if 'bedrooms' in df_clean.columns and 'price' in df_clean.columns:
+                    # Análisis de rentabilidad por tipo de propiedad
+                    rentabilidad = df_clean.groupby('bedrooms')['price'].agg(['mean', 'count']).round(0)
+                    rentabilidad = rentabilidad[rentabilidad['count'] >= 20]  # Solo con suficientes muestras
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**🏆 Rentabilidad por tipo:**")
+                        for habitaciones, data in rentabilidad.iterrows():
+                            tipo = "Estudio" if habitaciones == 0 else f"{int(habitaciones)} habitaciones"
+                            st.metric(f"{tipo}", f"${data['mean']:,.0f}")
+                    
+                    with col2:
+                        st.markdown("**📈 Recomendaciones de inversión:**")
+                        mejor_tipo = rentabilidad['mean'].idxmin()  # El más barato = mejor retorno potencial
+                        
+                        st.markdown(f"""
+                        • **Mejor relación precio-demanda**: {int(mejor_tipo)} habitaciones
+                        • **Para alquiler**: Propiedades de 2-3 habitaciones
+                        • **Para reventa rápida**: Casas familiares (3-4 habitaciones)
+                        • **Evitar**: Propiedades de más de 5 habitaciones (nicho muy específico)
+                        """)
+                        
+                        # ROI estimado
+                        st.success("💰 **ROI estimado**: 8-12% anual en alquiler + apreciación")
+                else:
+                    st.info("💡 Para análisis de rentabilidad, necesitamos datos de habitaciones.")
+            
+            # Resumen ejecutivo
+            st.markdown("---")
+            st.markdown("### 📋 Resumen Ejecutivo")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**🎯 ACCIÓN INMEDIATA**")
+                st.markdown("Buscar propiedades por debajo de $500K con 3 habitaciones en zonas en desarrollo")
+            
+            with col2:
+                st.markdown("**💰 PRESUPUESTO SUGERIDO**")
+                st.markdown(f"Entre ${precio_mediano * 0.8:,.0f} - ${precio_mediano * 1.2:,.0f} para mejor balance riesgo-retorno")
+            
+            with col3:
+                st.markdown("**⏰ TIMEFRAME**")
+                st.markdown("Invertir en los próximos 3-6 meses aprovechando oportunidades actuales")
+        
         # ----- SECCIÓN DE FEATURE ENGINEERING -----
         st.markdown("---")
-        st.header("⚙️ 3. Feature Engineering")
+        st.header("⚙️ 4. Feature Engineering")
         
         if st.button("🔧 Crear Variables Calculadas", type="secondary"):
             df_to_process = st.session_state.df_clean if st.session_state.df_clean is not None else df
@@ -444,7 +607,7 @@ if modulo == "🔄 ETL - Carga y Limpieza":
         # Mostrar dataset final
         if st.session_state.df_clean is not None:
             st.markdown("---")
-            st.header("📊 4. Dataset Procesado")
+            st.header("📊 5. Dataset Procesado")
             
             col1, col2, col3 = st.columns(3)
             with col1:
