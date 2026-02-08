@@ -133,32 +133,46 @@ def create_calculated_features(df):
     
     return df, new_features
 
-def generate_ai_insights(df, api_key):
+def generate_ai_insights(df, api_key, custom_prompt=None):
     """Genera insights usando la API de Groq"""
     try:
         # Preparar resumen estadístico
-        stats_summary = df.describe().to_string()
+        stats_summary = df.describe().to_string() if not df.empty else "No hay datos estadísticos"
         
         # Información adicional
-        null_info = df.isnull().sum().to_string()
+        null_info = df.isnull().sum().to_string() if not df.empty else "No hay información de nulos"
         
-        # Prompt estructurado
-        prompt = f"""Eres un analista de datos experto en el mercado inmobiliario. 
-        Analiza los siguientes datos estadísticos de propiedades y proporciona insights valiosos.
-        
-        RESUMEN ESTADÍSTICO:
-        {stats_summary}
-        
-        VALORES FALTANTES:
-        {null_info}
-        
-        Por favor proporciona:
-        1. **Tendencias principales** observadas en los datos
-        2. **Riesgos potenciales** o problemas detectados
-        3. **Oportunidades de negocio** basadas en los patrones
-        4. **Recomendaciones estratégicas** para inversores
-        
-        Responde en español de forma clara y concisa, usando viñetas cuando sea apropiado."""
+        # Usar prompt personalizado o el predeterminado
+        if custom_prompt:
+            prompt = f"""{custom_prompt}
+            
+            DATOS ESTADÍSTICOS:
+            {stats_summary}
+            
+            INFORMACIÓN DE VALORES FALTANTES:
+            {null_info}
+            
+            Responde en español de forma clara y práctica, enfocado en decisiones de negocio.
+            """
+        else:
+            # Prompt estructurado predeterminado
+            prompt = f"""Eres un analista inmobiliario experto. 
+            Analiza los siguientes datos de propiedades y proporciona insights comerciales valiosos.
+            
+            RESUMEN ESTADÍSTICO:
+            {stats_summary}
+            
+            VALORES FALTANTES:
+            {null_info}
+            
+            Por favor proporciona un análisis orientado al negocio con:
+            1. **Oportunidades de inversión** que detectas en los datos
+            2. **Riesgos potenciales** para compradores e inversionistas
+            3. **Tendencias del mercado** basadas en los patrones
+            4. **Recomendaciones específicas** para diferentes tipos de compradores (primera vivienda, inversión, lujo)
+            
+            Responde en español de forma clara y práctica, usando viñetas cuando sea apropiado.
+            Enfócate en insights que sean útiles para tomar decisiones de compra/venta/inversión."""
         
         # Llamada a la API de Groq
         headers = {
@@ -169,11 +183,11 @@ def generate_ai_insights(df, api_key):
         data = {
             "model": "llama-3.1-70b-versatile",
             "messages": [
-                {"role": "system", "content": "Eres un analista de datos experto especializado en bienes raíces."},
+                {"role": "system", "content": "Eres un analista inmobiliario experto especializado en asesorar decisiones de inversión."},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.7,
-            "max_tokens": 1500
+            "max_tokens": 2000
         }
         
         response = requests.post(
@@ -203,16 +217,17 @@ with st.sidebar:
     # Navegación por módulos
     modulo = st.radio(
         "📌 Navegación",
-        ["🔄 ETL - Carga y Limpieza", "📊 EDA - Visualizaciones", "🤖 IA - Insights Inteligentes"],
+        ["🔄 ETL - Carga y Limpieza", "📊 EDA - Visualizaciones", "🔍 VERIFICACIÓN (Temporal)", "🤖 IA - Insights Inteligentes"],
         index=0
     )
     
     st.markdown("---")
-    st.markdown("### 🎯 Preguntas de Negocio")
+    st.markdown("### 🎯 Preguntas de Negocio Reales")
     st.markdown("""
-    1. ¿Qué factores correlacionan más con el precio?
-    2. ¿Existe estacionalidad en los precios?  
-    3. ¿Impacto de waterfront en el precio?
+    1. ¿Dónde invertir para obtener mejor retorno?
+    2. ¿Cuál es el precio ideal de mi propiedad?  
+    3. ¿Qué zonas están subvaloradas?
+    4. ¿Qué tipo de propiedades son más rentables?
     """)
     
     st.markdown("---")
@@ -277,64 +292,139 @@ if modulo == "🔄 ETL - Carga y Limpieza":
                 columns={'index': 'Columna', 0: 'Tipo'}
             ), use_container_width=True)
         
-        # ----- SECCIÓN DE LIMPIEZA -----
+        # ----- SECCIÓN DE LIMPIEZA AUTOMÁTICA -----
         st.markdown("---")
-        st.header("🧹 2. Limpieza de Datos")
+        st.header("🧹 2. Limpieza Automática de Datos")
         
-        col1, col2 = st.columns(2)
+        st.markdown("**¿Qué estamos haciendo?** Limpiando automáticamente todos los datos para que estén listos para el análisis.")
         
+        col1, col2, col3 = st.columns(3)
         with col1:
-            # Checkbox para duplicados
-            remove_dups = st.checkbox("Eliminar filas duplicadas", value=True)
-            
-            # Método de imputación
-            imputation_method = st.selectbox(
-                "Método de imputación para valores nulos:",
-                ["Media", "Mediana", "Cero", "No imputar"]
-            )
-        
+            st.metric("Propiedades en total", len(df))
         with col2:
-            # Tratamiento de outliers
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-            outlier_col = st.selectbox(
-                "Columna para detectar outliers:",
-                ["Ninguna"] + numeric_cols
+            st.metric("Información disponible", len(df.columns))
+        with col3:
+            problemas = df.isnull().sum().sum() + len(df[df.duplicated()])
+            st.metric("Problemas detectados", problemas)
+        
+        # Ejecutar limpieza automática
+        with st.spinner("Limpiando datos automáticamente..."):
+            df_original_etl = df.copy()
+            df_clean = df.copy()
+            cleaning_steps = []
+            
+            # 1. Eliminar duplicados
+            duplicados_antes = len(df_clean[df_clean.duplicated()])
+            df_clean = df_clean.drop_duplicates()
+            duplicados_eliminados = duplicados_antes
+            if duplicados_eliminados > 0:
+                cleaning_steps.append(f"✅ Se eliminaron {duplicados_eliminados} propiedades duplicadas")
+            
+            # 2. Limpiar valores nulos de forma inteligente
+            nulos_antes = df_clean.isnull().sum().sum()
+            
+            # Para columnas numéricas: rellenar con la mediana
+            numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                if df_clean[col].isnull().sum() > 0:
+                    df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+            
+            # Para columnas de texto: rellenar con 'No especificado'
+            text_cols = df_clean.select_dtypes(include=['object']).columns
+            for col in text_cols:
+                if df_clean[col].isnull().sum() > 0:
+                    df_clean[col] = df_clean[col].fillna('No especificado')
+            
+            nulos_despues = df_clean.isnull().sum().sum()
+            nulos_corregidos = nulos_antes - nulos_despues
+            if nulos_corregidos > 0:
+                cleaning_steps.append(f"✅ Se corrigieron {nulos_corregidos} datos faltantes")
+            
+            # 3. Validar y corregir tipos de datos
+            tipos_corregidos = 0
+            if 'price' in df_clean.columns:
+                df_clean['price'] = pd.to_numeric(df_clean['price'], errors='coerce')
+                tipos_corregidos += 1
+            
+            if 'bedrooms' in df_clean.columns:
+                df_clean['bedrooms'] = pd.to_numeric(df_clean['bedrooms'], errors='coerce')
+                tipos_corregidos += 1
+                
+            if 'bathrooms' in df_clean.columns:
+                df_clean['bathrooms'] = pd.to_numeric(df_clean['bathrooms'], errors='coerce')
+                tipos_corregidos += 1
+            
+            if 'sqft_living' in df_clean.columns:
+                df_clean['sqft_living'] = pd.to_numeric(df_clean['sqft_living'], errors='coerce')
+                tipos_corregidos += 1
+            
+            if tipos_corregidos > 0:
+                cleaning_steps.append(f"✅ Se corrigieron {tipos_corregidos} tipos de datos")
+            
+            # 4. Eliminar valores extremos poco realistas
+            outliers_removidos = 0
+            if 'price' in df_clean.columns:
+                antes = len(df_clean)
+                # Eliminar propiedades con precios irreales (menos de $1000 o más de $50M)
+                df_clean = df_clean[(df_clean['price'] >= 1000) & (df_clean['price'] <= 50000000)]
+                outliers_removidos += antes - len(df_clean)
+            
+            if outliers_removidos > 0:
+                cleaning_steps.append(f"✅ Se eliminaron {outliers_removidos} propiedades con precios irreales")
+            
+            # Guardar dataset limpio
+            clean_file_path = "data/dataset_limpio.csv"
+            try:
+                df_clean.to_csv(clean_file_path, index=False)
+            except:
+                pass  # No issue if can't save locally
+            
+            # Mostrar resultados
+            st.success("✅ ¡Limpieza automática completada!")
+            
+            # Comparación de salud del dataset
+            st.subheader("📊 Comparación: Antes vs Después")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**📑 Dataset Original**")
+                st.metric("Total de propiedades", len(df_original_etl))
+                st.metric("Datos faltantes", df_original_etl.isnull().sum().sum())
+                st.metric("Propiedades duplicadas", len(df_original_etl[df_original_etl.duplicated()]))
+                original_quality = ((len(df_original_etl) - df_original_etl.isnull().sum().sum()) / len(df_original_etl) * 100)
+                st.metric("Calidad de datos", f"{original_quality:.1f}%")
+            
+            with col2:
+                st.markdown("**✨ Dataset Limpio**")
+                st.metric("Total de propiedades", len(df_clean), delta=len(df_clean) - len(df_original_etl))
+                st.metric("Datos faltantes", df_clean.isnull().sum().sum(), 
+                         delta=df_clean.isnull().sum().sum() - df_original_etl.isnull().sum().sum())
+                st.metric("Propiedades duplicadas", len(df_clean[df_clean.duplicated()]),
+                         delta=len(df_clean[df_clean.duplicated()]) - len(df_original_etl[df_original_etl.duplicated()]))
+                clean_quality = ((len(df_clean) - df_clean.isnull().sum().sum()) / len(df_clean) * 100)
+                st.metric("Calidad de datos", f"{clean_quality:.1f}%")
+            
+            # Resumen de lo que se hizo
+            with st.expander("🔍 Ver detalles de lo que se limpió"):
+                st.markdown("**Pasos de limpieza realizados:**")
+                for step in cleaning_steps:
+                    st.write(step)
+                if not cleaning_steps:
+                    st.write("✨ Los datos ya estaban en perfecto estado!")
+            
+            # Descargar dataset limpio
+            csv_clean = df_clean.to_csv(index=False)
+            st.download_button(
+                label="⬇️ Descargar datos limpios",
+                data=csv_clean,
+                file_name="propiedades_limpias.csv",
+                mime="text/csv"
             )
             
-            if outlier_col != "Ninguna":
-                outlier_method = st.selectbox(
-                    "Método de tratamiento de outliers:",
-                    ["No tratar", "Eliminar", "Reemplazar con límites", "Reemplazar con mediana"]
-                )
-        
-        # Botón de aplicar limpieza
-        if st.button("🚀 Aplicar Limpieza", type="primary"):
-            df_clean = df.copy()
-            log_messages = []
-            
-            # Eliminar duplicados
-            if remove_dups:
-                df_clean, removed = remove_duplicates(df_clean)
-                log_messages.append(f"✓ Duplicados eliminados: {removed}")
-            
-            # Imputar valores
-            if imputation_method != "No imputar":
-                df_clean, imputed = impute_missing_values(df_clean, imputation_method)
-                log_messages.append(f"✓ Valores imputados ({imputation_method}): {imputed}")
-            
-            # Tratar outliers
-            if outlier_col != "Ninguna" and outlier_method != "No tratar":
-                outliers_before, _, _ = detect_outliers(df_clean, outlier_col)
-                df_clean = treat_outliers(df_clean, outlier_col, outlier_method)
-                outliers_after, _, _ = detect_outliers(df_clean, outlier_col)
-                log_messages.append(f"✓ Outliers en {outlier_col}: {len(outliers_before)} → {len(outliers_after)}")
-            
-            st.session_state.df_clean = df_clean
-            
-            # Mostrar log
-            st.success("✅ Limpieza completada")
-            for msg in log_messages:
-                st.info(msg)
+            # Guardar en session state para uso posterior
+            st.session_state['df_clean'] = df_clean
+            st.session_state['cleaning_completed'] = True
         
         # ----- SECCIÓN DE FEATURE ENGINEERING -----
         st.markdown("---")
@@ -614,9 +704,272 @@ elif modulo == "📊 EDA - Visualizaciones":
                     st.success(f"📈 Las propiedades con vista al agua cuestan en promedio ${diff:,.0f} más ({pct:.1f}%)")
 
 # ============================================================================
+# SECCIÓN DE VERIFICACIÓN DE DATOS (TEMPORAL)
+# ============================================================================
+elif modulo == "🔍 VERIFICACIÓN (Temporal)":
+    st.title("🔍 VERIFICACIÓN DE DATOS (Para Revisión)")
+    st.warning("⚠️ SECCIÓN TEMPORAL: Esta sección se eliminará una vez verificados todos los cálculos")
+    
+    # Verificar que hay datos
+    df = st.session_state.df_clean if st.session_state.df_clean is not None else st.session_state.df_original
+    
+    if df is None:
+        st.error("❌ No hay datos cargados. Por favor, primero usa el módulo ETL.")
+        st.stop()
+    
+    st.markdown("**💡 Datos importantes para copiar y verificar:**")
+    
+    # Métricas clave calculadas
+    col1, col2, col3, col4 = st.columns(4)
+    
+    precio_promedio = df['price'].mean() if 'price' in df.columns else 0
+    precio_mediano = df['price'].median() if 'price' in df.columns else 0
+    total_propiedades = len(df)
+    precio_maximo = df['price'].max() if 'price' in df.columns else 0
+    precio_minimo = df['price'].min() if 'price' in df.columns else 0
+    
+    with col1:
+        st.metric("Precio Promedio", f"${precio_promedio:,.0f}")
+        st.metric("Precio Mediano", f"${precio_mediano:,.0f}")
+    
+    with col2:
+        st.metric("Total Propiedades", f"{total_propiedades:,}")
+        st.metric("Precio Máximo", f"${precio_maximo:,.0f}")
+    
+    with col3:
+        if 'bedrooms' in df.columns:
+            habitaciones_promedio = df['bedrooms'].mean()
+            st.metric("Habitaciones Promedio", f"{habitaciones_promedio:.1f}")
+        
+        if 'bathrooms' in df.columns:
+            banos_promedio = df['bathrooms'].mean()
+            st.metric("Baños Promedio", f"{banos_promedio:.1f}")
+    
+    with col4:
+        if 'sqft_living' in df.columns:
+            area_promedio = df['sqft_living'].mean()
+            st.metric("Área Promedio (sqft)", f"{area_promedio:,.0f}")
+        
+        st.metric("Precio Mínimo", f"${precio_minimo:,.0f}")
+    
+    # Datos para copiar
+    st.subheader("📋 Datos para Copiar y Verificar")
+    
+    verification_data = f"""**MÉTRICAS PRINCIPALES:**
+- Total de propiedades: {total_propiedades:,}
+- Precio promedio: ${precio_promedio:,.2f}
+- Precio mediano: ${precio_mediano:,.2f}
+- Precio máximo: ${precio_maximo:,.2f}
+- Precio mínimo: ${precio_minimo:,.2f}
+    """
+    
+    if 'bedrooms' in df.columns:
+        verification_data += f"\n- Habitaciones promedio: {df['bedrooms'].mean():.2f}"
+    if 'bathrooms' in df.columns:
+        verification_data += f"\n- Baños promedio: {df['bathrooms'].mean():.2f}"
+    if 'sqft_living' in df.columns:
+        verification_data += f"\n- Área promedio: {df['sqft_living'].mean():.2f} sqft"
+    
+    # Top 5 precios más altos
+    if 'price' in df.columns:
+        top_prices = df.nlargest(5, 'price')[['price']]
+        verification_data += f"\n\n**TOP 5 PRECIOS MÁS ALTOS:**\n"
+        for i, (_, row) in enumerate(top_prices.iterrows(), 1):
+            verification_data += f"{i}. ${row['price']:,.2f}\n"
+    
+    # Distribución por rangos
+    if 'price' in df.columns:
+        ranges = [(0, 200000), (200000, 500000), (500000, 1000000), (1000000, float('inf'))]
+        verification_data += f"\n**DISTRIBUCIÓN POR RANGOS:**\n"
+        for min_p, max_p in ranges:
+            count = len(df[(df['price'] >= min_p) & (df['price'] < max_p)])
+            percentage = (count / len(df)) * 100
+            range_name = f"${min_p:,} - ${max_p:,}" if max_p != float('inf') else f"Más de ${min_p:,}"
+            verification_data += f"- {range_name}: {count:,} propiedades ({percentage:.1f}%)\n"
+    
+    st.text_area(
+        "Datos calculados (copiar para verificación):",
+        verification_data,
+        height=400
+    )
+    
+    # Vista previa de datos crudos
+    with st.expander("🔍 Ver muestra de datos procesados"):
+        st.dataframe(df.head(10))
+    
+    # Verificación de columnas específicas
+    st.subheader("📊 Información de Columnas")
+    if not df.empty:
+        for col in df.columns:
+            if df[col].dtype in ['int64', 'float64']:
+                col_data = {
+                    'Columna': col,
+                    'Tipo': str(df[col].dtype),
+                    'Min': f"{df[col].min():,.2f}" if pd.notnull(df[col].min()) else "N/A",
+                    'Max': f"{df[col].max():,.2f}" if pd.notnull(df[col].max()) else "N/A",
+                    'Promedio': f"{df[col].mean():.2f}" if pd.notnull(df[col].mean()) else "N/A",
+                    'Nulos': df[col].isnull().sum()
+                }
+                st.write(f"**{col}:** Min: {col_data['Min']}, Max: {col_data['Max']}, Promedio: {col_data['Promedio']}, Nulos: {col_data['Nulos']}")
+
+# ============================================================================
 # MÓDULO 3: INTEGRACIÓN CON IA (GROQ)
 # ============================================================================
 elif modulo == "🤖 IA - Insights Inteligentes":
+    st.title("🤖 Módulo IA: Insights de Negocio con Inteligencia Artificial")
+    st.markdown("**¿Qué hace esta sección?** Usa inteligencia artificial para responder preguntas de negocio sobre las propiedades.")
+    
+    # Verificar que hay datos
+    df = st.session_state.df_clean if st.session_state.df_clean is not None else st.session_state.df_original
+    
+    if df is None:
+        st.warning("⚠️ Por favor, primero carga datos en el módulo ETL")
+        st.stop()
+    
+    # Configuración de API simplificada
+    st.markdown("### 🔐 Configuración de API")
+    
+    api_key = st.text_input(
+        "🔑 Clave de API de Groq (opcional):",
+        type="password",
+        help="Obtén tu clave gratuita en https://console.groq.com/ para activar el análisis con IA"
+    )
+    
+    if api_key:
+        # Preguntas de negocio orientadas a proyección comercial
+        st.markdown("---")
+        st.markdown("### 🎯 Preguntas de Negocio")
+        
+        # Definir preguntas más orientadas al negocio
+        business_questions = {
+            "Oportunidades de Inversión": {
+                "question": "¿En qué áreas puedo encontrar las mejores propiedades por el precio?",
+                "description": "Identifica zonas con propiedades de buen valor para inversión"
+            },
+            "Proyección de Ventas": {
+                "question": "¿Cuál sería el precio ideal para vender mi propiedad?",
+                "description": "Estima precios de venta basado en características similares"
+            },
+            "Análisis de Mercado": {
+                "question": "¿Qué tipo de propiedades son más populares y rentables?",
+                "description": "Analiza tendencias de demanda por tipo de propiedad"
+            },
+            "Comparativa Regional": {
+                "question": "¿Dónde están las propiedades más caras vs más baratas?",
+                "description": "Compara precios promedio por ubicación"
+            },
+            "Retorno de Inversión": {
+                "question": "¿Qué propiedades me darían mejor retorno si las compro para rentar?",
+                "description": "Calcula potencial de retorno para inversión en alquiler"
+            }
+        }
+        
+        selected_question = st.selectbox(
+            "Selecciona una pregunta de negocio:",
+            options=list(business_questions.keys()),
+            format_func=lambda x: f"📊 {x}: {business_questions[x]['question']}"
+        )
+        
+        if selected_question:
+            st.info(f"💡 {business_questions[selected_question]['description']}")
+        
+        # Botón para análisis específico
+        if st.button("📊 Analizar Pregunta de Negocio", type="primary"):
+            if not api_key:
+                st.error("❌ Por favor, ingresa tu clave de API de Groq")
+            else:
+                selected_q_data = business_questions[selected_question]
+                with st.spinner("🤔 La IA está analizando tu pregunta de negocio..."):
+                    # Crear prompt específico para la pregunta
+                    prompt = f"""
+                    Analiza estos datos de propiedades inmobiliarias para responder esta pregunta de negocio:
+                    
+                    PREGUNTA: {selected_q_data['question']}
+                    CONTEXTO: {selected_q_data['description']}
+                    
+                    Datos disponibles:
+                    - {len(df)} propiedades
+                    - Precio promedio: ${df['price'].mean():,.0f} (si tiene columna price)
+                    
+                    Por favor responde de forma práctica y orientada a decisiones de negocio.
+                    """
+                    
+                    insights, error = generate_ai_insights(df, api_key, custom_prompt=prompt)
+                    
+                    if error:
+                        st.error(f"❌ Error: {error}")
+                    else:
+                        st.success("✅ Análisis completado")
+                        st.markdown("### 🎯 Respuesta de Negocio")
+                        st.markdown(insights)
+        
+        # Análisis automático completo
+        st.markdown("---")
+        st.markdown("### 🚀 Análisis Completo Automático")
+        
+        if st.button("🔍 Generar Reporte Completo", type="secondary"):
+            with st.spinner("🤖 Generando reporte completo con IA..."):
+                insights, error = generate_ai_insights(df, api_key)
+                
+                if error:
+                    st.error(f"❌ Error: {error}")
+                else:
+                    st.success("✅ Reporte generado")
+                    st.markdown("### 📊 Insights Completos")
+                    st.markdown(insights)
+                    
+                    # Descargar reporte
+                    st.download_button(
+                        label="⬇️ Descargar reporte completo",
+                        data=insights,
+                        file_name=f"reporte_ia_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                        mime="text/plain"
+                    )
+        
+        # Chat interactivo personalizado
+        st.markdown("---")
+        st.markdown("### 💬 Consultas Personalizadas")
+        st.markdown("**Haz preguntas específicas sobre las propiedades:**")
+        
+        user_question = st.text_input(
+            "Tu pregunta:",
+            placeholder="¿Cuáles son las mejores zonas para invertir con poco presupuesto?"
+        )
+        
+        if user_question and st.button("📤 Obtener Respuesta"):
+            with st.spinner("💭 Analizando tu pregunta..."):
+                prompt = f"""
+                Usuario pregunta: {user_question}
+                
+                Analiza los datos de propiedades inmobiliarias y responde de forma clara y práctica.
+                Enfócate en dar consejos útiles para decisiones de negocio.
+                """
+                answer, error = generate_ai_insights(df, api_key, custom_prompt=prompt)
+                
+                if error:
+                    st.error(f"❌ Error: {error}")
+                else:
+                    st.markdown("**🤖 Respuesta:**")
+                    st.markdown(answer)
+    
+    else:
+        st.info("💡 Para usar el análisis con IA, ingresa tu clave de API de Groq (es gratuita)")
+        
+        # Mostrar métricas básicas sin IA
+        st.markdown("### 📊 Resumen Básico de Datos")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Propiedades", f"{len(df):,}")
+        with col2:
+            st.metric("Variables Disponibles", df.shape[1])
+        with col3:
+            if 'price' in df.columns:
+                st.metric("Precio Promedio", f"${df['price'].mean():,.0f}")
+
+# ============================================================================
+# MÓDULO 4: INTEGRACIÓN CON IA (GROQ) - ANTERIOR
+# ============================================================================
+elif modulo == "🤖 IA - Insights Inteligentes (OLD)":
     st.title("🤖 Módulo IA: Insights Generados con Inteligencia Artificial")
     st.markdown("Usa el poder de los modelos de lenguaje para obtener análisis avanzados.")
     
