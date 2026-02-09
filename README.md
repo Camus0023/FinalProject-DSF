@@ -116,7 +116,7 @@ FinalProject-DSF/
 
 ### Módulo 3: Inteligencia Artificial
 - ✅ Integración con API de Groq
-- ✅ Modelo Llama-3.1-70b-versatile
+- ✅ Modelo Llama-3.3-70b-versatile
 - ✅ Generación de insights en lenguaje natural
 - ✅ Análisis de tendencias, riesgos y oportunidades
 

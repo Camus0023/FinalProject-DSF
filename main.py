@@ -181,7 +181,7 @@ def generate_ai_insights(df, api_key, custom_prompt=None):
         }
         
         data = {
-            "model": "llama-3.1-70b-versatile",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "Eres un analista inmobiliario experto especializado en asesorar decisiones de inversión."},
                 {"role": "user", "content": prompt}

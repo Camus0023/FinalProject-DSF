@@ -194,7 +194,7 @@ def generate_ai_insights(df, api_key):
         }
         
         data = {
-            "model": "llama-3.1-70b-versatile",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "Eres un analista de datos experto especializado en bienes raíces."},
                 {"role": "user", "content": prompt}
