@@ -75,9 +75,7 @@ Este dashboard integra **Ciencia de Datos** e **Inteligencia Artificial Generati
 
 ## 🌐 Link al Despliegue
 
-**🔗 Aplicación en Producción:** [https://tu-app.streamlit.app](https://tu-app.streamlit.app)
-
-*(Actualizar este enlace después del despliegue en Streamlit Cloud)*
+**🔗 Aplicación en Producción:** [https://final-tst.streamlit.app/]
 
 ---
 
@@ -182,7 +180,7 @@ Para usar las funciones de IA:
 
 ## 👤 Créditos
 
-**Autor:** Juan Rua  
+**Autor:** Juan Pablo Rua, Pedro Saldarriaga, Juan Pablo Mejia  
 **Curso:** Fundamentos de Ciencia de Datos  
 **Universidad:** EAFIT  
 **Periodo:** 2026-1  
@@ -201,5 +199,3 @@ Este proyecto es parte del curso de Fundamentos de Ciencia de Datos de la Univer
 ---
 
 *"La tecnología por sí sola no genera valor; es la capacidad de usarla para responder las preguntas correctas lo que define a un Científico de Datos."*
-
-📧 **Contacto:** jipadillab@eafit.edu.co
